@@ -38,54 +38,42 @@ class Panda(pygame.sprite.Sprite):
         self.vely = -10
         self.max_jump = 200
         self.go_down = False
-
+        self.falling = False
     def handle_keys(self,platform):
         key = pygame.key.get_pressed()
         dist = 5
         on_ground(self,platform)
         if key[K_SPACE]:
             self.jumping = True
-            print "jump"
             self.max_jump = 100
         elif key[K_RIGHT]:
             if self.x < 390:            
-                self.x += dist
+                recta = Rect(self.x + dist, self.y, self.rect.width, self.rect.height)  
+                if self.is_valid_move(platform,recta):
+                    self.x += dist
         elif key[K_LEFT]:
-			if self.x > 0:            
-				self.x -= dist
+            if self.x > 0:
+                recta = Rect(self.x - dist, self.y, self.rect.width, self.rect.height)
+                if self.is_valid_move(platform, recta):
+                    self.x -= dist
         #elif not any(key):
-        if not on_ground(self, platform):
+        if not on_ground(self, platform) and not self.jumping:
             self.jumping = True
+            self.vely = 0
         if self.jumping:
             self.y += self.vely
             self.vely += 1
             if on_ground(self,platform):
                 self.jumping = False
                 self.vely = -10
-        
-
-
-     #   if self.jumping:
-        #    print self.y, self.max_jump
-        #    if self.y <= self.max_jump:
-        #        self.go_down = True
-         #       print "1"         
-          #  if self.go_down:
-           #     print "2"
-            #    if on_ground(self,platform):
-             #       self.go_down = False
-              #      self.jumping = False
-               #     print "3"
-               # else:
-                 #   self.y += dist
-                #    print "4"
-           # else:
-            #    self.y -= 10
-        #        print "5"
-
-
         self.curr_rect = Rect(self.x,self.y,self.rect.width,self.rect.height)
-        
+    
+    def is_valid_move(self, platform, recta):
+        walls = platform.walls     
+        for w in walls:
+            if recta.colliderect(w.rect):
+                return False
+        return True
 
     def draw(self, surface):
         surface.blit(self.image, (self.x, self.y))
@@ -126,8 +114,29 @@ class Platform(object):
         for i in range(12,15):
             for j in range(20):
                 tiles[i][j].is_ground = True
-        self.tiles = tiles
+        for i in range(12,14):
+            for j in range(10,15):
+                tiles[i][j].is_ground = False
         
+        self.tiles = tiles
+        self.walls = self.get_walls()
+        #print [(w.x, w.y) for w in self.walls]
+    
+    def get_walls(self):
+        tiles = self.tiles
+        walls = set()
+        for i in range(len(tiles)):
+            for j in range(len(tiles[i])):
+                if tiles[i][j].is_ground:
+                    if  j>0:
+                        if not tiles[i][j-1].is_ground:
+                            walls.add(tiles[i][j])
+                    if j < len(tiles[i])-1:
+                        if not tiles[i][j+1].is_ground:
+                            walls.add(tiles[i][j])
+        return walls
+                    
+   
     def draw(self, surface):
         tiles = self.tiles
         for i in range(len(tiles)):
