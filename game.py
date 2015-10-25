@@ -12,12 +12,11 @@ def load_image(name, colorkey=None):
     image = image.convert()
     if colorkey is not None:
         if colorkey is -1:
-            colorkey = image.get_at((0,0))
+            colorkey = image.get_at((0, 0))
         image.set_colorkey(colorkey, RLEACCEL)
     return image, image.get_rect()
 
-def on_ground(panda, platform):
-    panda_rect = panda.curr_rect
+def on_ground(panda_rect, platform):
     tiles = platform.tiles
     for i in range(len(tiles)):
         for j in range(len(tiles[i])):
@@ -25,7 +24,6 @@ def on_ground(panda, platform):
                 return True
     return False
     
-
 #classes for our game objects
 class Panda(pygame.sprite.Sprite):
     def __init__(self):
@@ -36,37 +34,33 @@ class Panda(pygame.sprite.Sprite):
         self.curr_rect = self.rect
         self.jumping = False
         self.vely = -10
-        self.max_jump = 200
-        self.go_down = False
-        self.falling = False
-    def handle_keys(self,platform):
+
+    def handle_keys(self, platform):
         key = pygame.key.get_pressed()
         dist = 5
-        on_ground(self,platform)
         if key[K_SPACE]:
             self.jumping = True
-            self.max_jump = 100
         elif key[K_RIGHT]:
-            if self.x < 390:            
+            if self.x < platform.width - self.rect.width:            
                 recta = Rect(self.x + dist, self.y, self.rect.width, self.rect.height)  
-                if self.is_valid_move(platform,recta):
+                if self.is_valid_move(platform, recta):
                     self.x += dist
         elif key[K_LEFT]:
             if self.x > 0:
                 recta = Rect(self.x - dist, self.y, self.rect.width, self.rect.height)
                 if self.is_valid_move(platform, recta):
                     self.x -= dist
-        #elif not any(key):
-        if not on_ground(self, platform) and not self.jumping:
+        if not on_ground(self.rect, platform) and not self.jumping:
             self.jumping = True
             self.vely = 0
         if self.jumping:
-            self.y += self.vely
-            self.vely += 1
-            if on_ground(self,platform):
+            if on_ground(Rect(self.x, self.y + self.vely, self.rect.width, self.rect.height) , platform):
                 self.jumping = False
                 self.vely = -10
-        self.curr_rect = Rect(self.x,self.y,self.rect.width,self.rect.height)
+            else:
+                self.y += self.vely            
+                self.vely += 1
+        self.curr_rect = Rect(self.x, self.y, self.rect.width, self.rect.height)
     
     def is_valid_move(self, platform, recta):
         walls = platform.walls     
@@ -79,48 +73,47 @@ class Panda(pygame.sprite.Sprite):
         surface.blit(self.image, (self.x, self.y))
 
 class Tile(object):
-    def __init__(self, x, y, height, is_ground):
+    def __init__(self, x, y, length, is_ground):
         self.x = x
         self.y = y
-        self.height = height
+        self.length = length
         self.is_ground = is_ground
-        self.rect = Rect(x, y, height, height)
+        self.rect = Rect(x, y, length, length)
 
     def draw(self, surface):
-        ground_color = ( 50, 250, 50)
+        ground_color = (50, 250, 50)
         sky_color = (135, 206, 250)      
         if self.is_ground:        
-            pygame.draw.rect(surface, ground_color, (self.x, self.y, self.height, self.height))
+            pygame.draw.rect(surface, ground_color, (self.x, self.y, self.length, self.length))
         elif not self.is_ground:
-            pygame.draw.rect(surface, sky_color, (self.x, self.y, self.height, self.height)) 
+            pygame.draw.rect(surface, sky_color, (self.x, self.y, self.length, self.length)) 
         
         
 class Platform(object):
     def __init__(self):
-        self.ground_color = ( 0, 255, 0)
-        self.sky_color = (135, 206, 256)
         self.x = 0
         self.y = 240
+        self.tile_length = 20
         self.width = 400
-        self.height = 20
-        self.rows = 400/20
+        self.height = 300
+        self.rows = self.height/self.tile_length
+        self.cols = self.width/self.tile_length
         tiles =[]
-        for i in range(15):
+        for i in range(self.rows):
             row = []            
-            for j in range(20):
-                tile = Tile(j*20, i*20, 20, False)                
+            for j in range(self.cols):
+                tile = Tile(j*self.tile_length, i*self.tile_length, self.tile_length, False)                
                 row.append(tile)
             tiles.append(row)
-        for i in range(12,15):
+        for i in range(12, 15):
             for j in range(20):
                 tiles[i][j].is_ground = True
-        for i in range(12,14):
-            for j in range(10,15):
+        for i in range(12, 14):
+            for j in range(10, 15):
                 tiles[i][j].is_ground = False
         
         self.tiles = tiles
         self.walls = self.get_walls()
-        #print [(w.x, w.y) for w in self.walls]
     
     def get_walls(self):
         tiles = self.tiles
@@ -145,27 +138,22 @@ class Platform(object):
 
 def main():
     pygame.init()
-    DISPLAYSURF = pygame.display.set_mode((400, 300),0 , 32)
+    DISPLAYSURF = pygame.display.set_mode((400, 300), 0 , 32)
     pygame.display.set_caption('Ilyssa Panda Game!')
-    pygame.key.set_repeat(500,30)
+    pygame.key.set_repeat(500, 30)
     panda = Panda()
     platform = Platform()
 
-    background = pygame.Surface(DISPLAYSURF.get_size())
-    background = background.convert()
-    background.fill((250, 250, 250))
-    
-    DISPLAYSURF.blit(background, (0, 0))
     pygame.display.flip()
     clock = pygame.time.Clock()
-    pygame.time.set_timer(10,60)
+    pygame.time.set_timer(10, 60)
     while True:
         for event in pygame.event.get():
             if event.type == QUIT:
                 pygame.quit()
                 sys.exit()
             panda.handle_keys(platform)
-        DISPLAYSURF.blit(background, (0, 0))
+
         platform.draw(DISPLAYSURF)        
         panda.draw(DISPLAYSURF)
         pygame.display.flip()
