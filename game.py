@@ -1,5 +1,6 @@
-import pygame, sys, os
+import pygame, sys, os, random
 from pygame.locals import *
+
 
 #functions to create our resources
 def load_image(name, colorkey=None):
@@ -165,6 +166,16 @@ class Platform(object):
             for j in range(len(tiles[i])):        
                 tiles[i][j].draw(surface)
 
+def get_coins(platform):
+    coinImg = 'data/coin.png'
+    items = pygame.sprite.Group()
+    for i in range(10):
+        x = random.randint(0,platform.width)
+        y = random.randint(200,218)
+        coin = Item(x, y, {'coin':1}, coinImg)
+        items.add(coin)
+    return items
+
 def main():
     pygame.init()
     DISPLAYSURF = pygame.display.set_mode((400, 300), 0 , 32)
@@ -172,11 +183,7 @@ def main():
     pygame.key.set_repeat(500, 30)
     panda = Panda()
     platform = Platform()
-    coinImg = 'data/coin.png'
-    
-    items = pygame.sprite.Group()
-    coin = Item(100, 218, {'coin':1}, coinImg)
-    items.add(coin)
+    items = get_coins(platform)
     pygame.display.flip()
     clock = pygame.time.Clock()
     pygame.time.set_timer(10, 60)
