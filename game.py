@@ -55,9 +55,8 @@ class Panda(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self) #call Sprite initializer
         self.image, self.rect = load_image('chimp.bmp', -1)
-        self.x = 0
-        self.y = 160
-        self.curr_rect = self.rect
+        self.rect.x = 0
+        self.rect.y = 160
         self.jumping = False
         self.vely = -10
 
@@ -67,39 +66,41 @@ class Panda(pygame.sprite.Sprite):
         if key[K_SPACE]:
             self.jumping = True
         elif key[K_RIGHT]:
-            if self.x < platform.width - self.rect.width:            
-                recta = Rect(self.x + dist, self.y, self.rect.width, self.rect.height)  
-                if self.is_valid_move(platform, recta):
-                    self.x += dist
+            if self.rect.x < platform.width - self.rect.width:            
+                r = Rect(self.rect.x + dist, self.rect.y, self.rect.width, self.rect.height)  
+                if self.is_valid_move(platform, r):
+                    self.rect.x += dist
         elif key[K_LEFT]:
-            if self.x > 0:
-                recta = Rect(self.x - dist, self.y, self.rect.width, self.rect.height)
-                if self.is_valid_move(platform, recta):
-                    self.x -= dist
+            if self.rect.x > 0:
+                r = Rect(self.rect.x - dist, self.rect.y, self.rect.width, self.rect.height)
+                if self.is_valid_move(platform, r):
+                    self.rect.x -= dist
         if not on_ground(self.rect, platform) and not self.jumping:
             self.jumping = True
             self.vely = 0
         if self.jumping:
-            if on_ground(Rect(self.x, self.y + self.vely, self.rect.width, self.rect.height) , platform):
+            if on_ground(Rect(self.rect.x, self.rect.y + self.vely, self.rect.width, self.rect.height) , platform):
                 self.jumping = False
                 self.vely = -10
             else:
-                self.y += self.vely            
+                self.rect.y += self.vely            
                 self.vely += 1
-        self.curr_rect = Rect(self.x, self.y, self.rect.width, self.rect.height)
     
-    def is_valid_move(self, platform, recta):
+    def is_valid_move(self, platform, rect_panda):
         walls = platform.walls     
         for w in walls:
-            if recta.colliderect(w.rect):
+            if rect_panda.colliderect(w.rect):
                 return False
         return True
     
     def items_collision(self, items):
-        pygame.sprite.spritecollide(self, items, True)
+        collision_list = pygame.sprite.spritecollide(self, items, True)
+        for collision in collision_list:
+            item = collision.pick_up()
 
-    def draw(self, surface):
-        surface.blit(self.image, (self.x, self.y))
+    def draw(self, surface, items):
+        surface.blit(self.image, (self.rect.x, self.rect.y))
+        self.items_collision(items)
 
 class Tile(object):
     def __init__(self, x, y, length, is_ground):
@@ -187,7 +188,7 @@ def main():
             panda.handle_keys(platform)
 
         platform.draw(DISPLAYSURF)        
-        panda.draw(DISPLAYSURF)
+        panda.draw(DISPLAYSURF, items)
         items.draw(DISPLAYSURF)
         pygame.display.flip()
 
