@@ -23,7 +23,33 @@ def on_ground(panda_rect, platform):
             if panda_rect.colliderect(tiles[i][j].rect) and tiles[i][j].is_ground:
                 return True
     return False
+
+class Item(pygame.sprite.Sprite):
+    def __init__(self, x, y, item_type, image, sound=None):
+        pygame.sprite.Sprite.__init__(self)
+        image = pygame.image.load(image).convert_alpha()
+        self.image = pygame.transform.scale(image, (20, 20))
+        self.rect = self.image.get_rect().inflate(-20, -20)      
+        self.rect.x = x
+        self.rect.y = y
+        self.item_type = item_type
+        self.load_sound(sound)
+
+    def load_sound(self, sound):
+        if sound != None:
+            self.sound = pygame.mixer.Sound(sound)
+        else:
+            self.sound = None
     
+    def play_sound(self):
+        if self.sound != None:
+            self.sound.play()
+
+    def pick_up(self):
+        self.play_sound()
+        return self.item_type
+
+
 #classes for our game objects
 class Panda(pygame.sprite.Sprite):
     def __init__(self):
@@ -68,6 +94,9 @@ class Panda(pygame.sprite.Sprite):
             if recta.colliderect(w.rect):
                 return False
         return True
+    
+    def items_collision(self, items):
+        pygame.sprite.spritecollide(self, items, True)
 
     def draw(self, surface):
         surface.blit(self.image, (self.x, self.y))
@@ -128,8 +157,7 @@ class Platform(object):
                         if not tiles[i][j+1].is_ground:
                             walls.add(tiles[i][j])
         return walls
-                    
-   
+                       
     def draw(self, surface):
         tiles = self.tiles
         for i in range(len(tiles)):
@@ -143,7 +171,11 @@ def main():
     pygame.key.set_repeat(500, 30)
     panda = Panda()
     platform = Platform()
-
+    coinImg = 'data/coin.png'
+    
+    items = pygame.sprite.Group()
+    coin = Item(100, 218, {'coin':1}, coinImg)
+    items.add(coin)
     pygame.display.flip()
     clock = pygame.time.Clock()
     pygame.time.set_timer(10, 60)
@@ -156,6 +188,7 @@ def main():
 
         platform.draw(DISPLAYSURF)        
         panda.draw(DISPLAYSURF)
+        items.draw(DISPLAYSURF)
         pygame.display.flip()
 
 if __name__ == '__main__': main()
