@@ -1,6 +1,16 @@
 import pygame, sys, os, random
 from pygame.locals import *
+from levels import *
 
+WIN_WIDTH = 400
+WIN_HEIGHT = 300
+HALF_WIDTH = int(WIN_WIDTH/2)
+HALF_HEIGHT = int(WIN_HEIGHT/2)
+
+DISPLAY = (WIN_WIDTH, WIN_HEIGHT)
+DEPTH = 32
+FLAGS = 0
+CAMERA_SLACK = 30
 
 #functions to create our resources
 def load_image(name, colorkey=None):
@@ -50,6 +60,9 @@ class Item(pygame.sprite.Sprite):
         self.play_sound()
         return self.item_type
 
+    def draw2(self, surface, camera):
+        surface.blit(self.image, camera.apply(self))
+
 
 #classes for our game objects
 class Panda(pygame.sprite.Sprite):
@@ -57,9 +70,9 @@ class Panda(pygame.sprite.Sprite):
         pygame.sprite.Sprite.__init__(self) #call Sprite initializer
         self.image, self.rect = load_image('chimp.bmp', -1)
         self.rect.x = 0
-        self.rect.y = 160
+        self.rect.y = 240
         self.jumping = False
-        self.vely = -10
+        self.vely = -15
 
     def handle_keys(self, platform):
         key = pygame.key.get_pressed()
@@ -67,7 +80,7 @@ class Panda(pygame.sprite.Sprite):
         if key[K_SPACE]:
             self.jumping = True
         elif key[K_RIGHT]:
-            if self.rect.x < platform.width - self.rect.width:            
+            if self.rect.x < 800 - self.rect.width:            
                 r = Rect(self.rect.x + dist, self.rect.y, self.rect.width, self.rect.height)  
                 if self.is_valid_move(platform, r):
                     self.rect.x += dist
@@ -82,7 +95,7 @@ class Panda(pygame.sprite.Sprite):
         if self.jumping:
             if on_ground(Rect(self.rect.x, self.rect.y + self.vely, self.rect.width, self.rect.height) , platform):
                 self.jumping = False
-                self.vely = -10
+                self.vely = -15
             else:
                 self.rect.y += self.vely            
                 self.vely += 1
@@ -99,50 +112,37 @@ class Panda(pygame.sprite.Sprite):
         for collision in collision_list:
             item = collision.pick_up()
 
-    def draw(self, surface, items):
-        surface.blit(self.image, (self.rect.x, self.rect.y))
+    def draw(self, surface, camera, items):
+        surface.blit(self.image, camera.apply(self))
         self.items_collision(items)
 
 class Tile(object):
     def __init__(self, x, y, length, is_ground):
-        self.x = x
-        self.y = y
         self.length = length
         self.is_ground = is_ground
         self.rect = Rect(x, y, length, length)
 
-    def draw(self, surface):
+    def draw(self, surface, rect):
         ground_color = (50, 250, 50)
         sky_color = (135, 206, 250)      
         if self.is_ground:        
-            pygame.draw.rect(surface, ground_color, (self.x, self.y, self.length, self.length))
+            pygame.draw.rect(surface, ground_color, rect)
         elif not self.is_ground:
-            pygame.draw.rect(surface, sky_color, (self.x, self.y, self.length, self.length)) 
-        
+            pygame.draw.rect(surface, sky_color, rect) 
         
 class Platform(object):
     def __init__(self):
-        self.x = 0
-        self.y = 240
         self.tile_length = 20
-        self.width = 400
-        self.height = 300
-        self.rows = self.height/self.tile_length
-        self.cols = self.width/self.tile_length
         tiles =[]
-        for i in range(self.rows):
+        for i in range(len(level1)):
             row = []            
-            for j in range(self.cols):
-                tile = Tile(j*self.tile_length, i*self.tile_length, self.tile_length, False)                
-                row.append(tile)
-            tiles.append(row)
-        for i in range(12, 15):
-            for j in range(20):
-                tiles[i][j].is_ground = True
-        for i in range(12, 14):
-            for j in range(10, 15):
-                tiles[i][j].is_ground = False
-        
+            for j in range(len(level1[i])):
+                 if level1[i][j] == "1":
+                    tile = Tile(j*self.tile_length, i*self.tile_length, self.tile_length, True)
+                 else:
+                    tile = Tile(j*self.tile_length, i*self.tile_length, self.tile_length, False)            
+                 row.append(tile)
+            tiles.append(row)         
         self.tiles = tiles
         self.walls = self.get_walls()
     
@@ -160,25 +160,48 @@ class Platform(object):
                             walls.add(tiles[i][j])
         return walls
                        
-    def draw(self, surface):
+    def draw(self, surface, camera):
         tiles = self.tiles
         for i in range(len(tiles)):
-            for j in range(len(tiles[i])):        
-                tiles[i][j].draw(surface)
+            for j in range(len(tiles[i])):
+                tiles[i][j].draw(surface,camera.apply(tiles[i][j]))
+
+def complex_camera(camera, target_rect):
+    l, t, _, _ = target_rect
+    _, _, w, h = camera
+    l, t, _, _ = -l + HALF_WIDTH, -t+HALF_HEIGHT, w, h
+    l = min(0, l)
+    l = max(-(w-WIN_WIDTH), l)
+    t = max(-(h-WIN_HEIGHT), t)
+    t = min(0, t)
+    return Rect(l, t, w, h)
+
+class Camera(object):
+    def __init__(self, camera_func, width, height):
+        self.camera_func = camera_func
+        self.rect = Rect(0,0, width, height)
+
+    def apply(self, target):
+        return target.rect.move(self.rect.topleft)
+    
+    def update(self, target):
+        self.rect = self.camera_func(self.rect, target.rect) 
 
 def get_coins(platform):
     coinImg = 'data/coin.png'
     items = pygame.sprite.Group()
     for i in range(10):
-        x = random.randint(0,platform.width)
-        y = random.randint(200,218)
+        #x = random.randint(0,platform.width)
+        x = 100
+        y = random.randint(400,450)
         coin = Item(x, y, {'coin':1}, coinImg)
         items.add(coin)
     return items
 
 def main():
+    global cameraX, cameraY
     pygame.init()
-    DISPLAYSURF = pygame.display.set_mode((400, 300), 0 , 32)
+    DISPLAYSURF = pygame.display.set_mode(DISPLAY, 0 , 32)
     pygame.display.set_caption('Ilyssa Panda Game!')
     pygame.key.set_repeat(500, 30)
     panda = Panda()
@@ -187,16 +210,20 @@ def main():
     pygame.display.flip()
     clock = pygame.time.Clock()
     pygame.time.set_timer(10, 60)
+    total_level_width = len(level1[0])*20
+    total_level_height = len(level1)*20
+    camera = Camera(complex_camera, total_level_width, total_level_height)
     while True:
         for event in pygame.event.get():
             if event.type == QUIT:
                 pygame.quit()
                 sys.exit()
             panda.handle_keys(platform)
-
-        platform.draw(DISPLAYSURF)        
-        panda.draw(DISPLAYSURF, items)
-        items.draw(DISPLAYSURF)
+        camera.update(panda)
+        platform.draw(DISPLAYSURF, camera)        
+        panda.draw(DISPLAYSURF, camera, items)
+        for item in items:        
+            item.draw2(DISPLAYSURF, camera)
         pygame.display.flip()
 
 if __name__ == '__main__': main()
